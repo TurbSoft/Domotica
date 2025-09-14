@@ -1,0 +1,109 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include <ESP32Servo.h>
+
+// 🔹 Configura tu WiFi
+const char* ssid = "TECNO";
+const char* password = "21072705..";
+
+// 🔹 Pines definidos
+#define PIN_LUZ      23
+#define PIN_RESPALDO 25
+#define PIN_PUERTA   27
+
+// 🔹 Objetos servo
+Servo servoRespaldo;
+Servo servoPuerta;
+
+// 🔹 Servidor web
+WebServer server(80);
+
+// Página web
+const char index_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang="es">
+<head>
+ <meta charset="UTF-8" />
+ <title>Control Domótico ESP32</title>
+ <style>
+   body { font-family: Arial; text-align: center; margin-top: 30px; }
+   .section { margin: 20px; }
+   button { padding: 12px 25px; margin: 8px; font-size: 16px; }
+ </style>
+</head>
+<body>
+ <h1>Control Domótico ESP32</h1>
+
+ <div class="section">
+   <h2>Luz</h2>
+   <button onclick="fetch('/encenderLuz')">Encender Luz</button>
+   <button onclick="fetch('/apagarLuz')">Apagar Luz</button>
+ </div>
+
+ <div class="section">
+   <h2>Cama - Respaldo</h2>
+   <button onclick="fetch('/respaldo/90')">Mover a 90°</button>
+   <button onclick="fetch('/respaldo/60')">Mover a 60°</button>
+   <button onclick="fetch('/respaldo/45')">Mover a 45°</button>
+   <button onclick="fetch('/respaldo/0')">Mover a 0°</button>
+ </div>
+
+ <div class="section">
+   <h2>Puerta</h2>
+   <button onclick="fetch('/puerta/abrir')">Abrir Puerta</button>
+   <button onclick="fetch('/puerta/cerrar')">Cerrar Puerta</button>
+ </div>
+
+</body>
+</html>
+)rawliteral";
+
+void setup() {
+  Serial.begin(115200);
+
+  // Pines
+  pinMode(PIN_LUZ, OUTPUT);
+
+  // Servos
+  servoRespaldo.attach(PIN_RESPALDO);
+  servoPuerta.attach(PIN_PUERTA);
+
+  // WiFi
+  WiFi.begin(ssid, password);
+  Serial.println("Conectando a WiFi...");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.print("\n✅ Conectado. IP: ");
+  Serial.println(WiFi.localIP());
+
+  // Rutas del servidor
+  server.on("/", []() { server.send(200, "text/html", index_html); });
+
+  server.on("/encenderLuz", []() {
+    digitalWrite(PIN_LUZ, HIGH);
+    server.send(200, "text/plain", "💡 Luz encendida");
+  });
+
+  server.on("/apagarLuz", []() {
+    digitalWrite(PIN_LUZ, LOW);
+    server.send(200, "text/plain", "💡 Luz apagada");
+  });
+
+  server.on("/respaldo/90", []() { servoRespaldo.write(90); server.send(200, "text/plain", "Respaldo a 90°"); });
+  server.on("/respaldo/60", []() { servoRespaldo.write(60); server.send(200, "text/plain", "Respaldo a 60°"); });
+  server.on("/respaldo/45", []() { servoRespaldo.write(45); server.send(200, "text/plain", "Respaldo a 45°"); });
+  server.on("/respaldo/0",  []() { servoRespaldo.write(0);  server.send(200, "text/plain", "Respaldo a 0°"); });
+
+  server.on("/puerta/abrir", []() { servoPuerta.write(90); server.send(200, "text/plain", "Puerta abierta 🚪"); });
+  server.on("/puerta/cerrar", []() { servoPuerta.write(0);  server.send(200, "text/plain", "Puerta cerrada 🚪"); });
+
+  // Inicia servidor
+  server.begin();
+  Serial.println("Servidor web iniciado 🚀");
+}
+
+void loop() {
+  server.handleClient();
+}
